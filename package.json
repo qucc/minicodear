@@ -1,0 +1,8 @@
+{
+  "requires": true,
+  "lockfileVersion": 1,
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "threejs-miniprogram": "0.0.8"
+  }
+}

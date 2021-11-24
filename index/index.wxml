@@ -1,0 +1,15 @@
+<canvas
+  id="webgl"
+  type="webgl"
+  canvas-id="canvas"
+  style="width: {{width}}px; height: {{height}}px;"
+>
+</canvas>
+
+<camera
+  device-position="back"
+  flash="off"
+  binderror="error"
+  style="width: 192px; height: 144px;"
+  frame-size="small"
+></camera>
