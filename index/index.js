@@ -56,6 +56,7 @@ Page({
     const canvas = res.node
     const context = wx.createCameraContext()
     var isInitialized = false
+    faceFilter.FAKEDOM.window.setCanvas(canvas)
     const listener = context.onCameraFrame((frame) => {
       if (!isInitialized) {
         isInitialized = true
@@ -86,8 +87,8 @@ Page({
         });
       } 
       else{
-        FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
-        FAKEVIDEOELEMENT.needsUpdate = true
+        // FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
+        // FAKEVIDEOELEMENT.needsUpdate = true
       }
     })
     listener.start()
