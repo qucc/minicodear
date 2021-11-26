@@ -7,7 +7,7 @@
 </canvas>
 
 <camera
-  device-position="back"
+  device-position="front"
   flash="off"
   binderror="error"
   style="width: 192px; height: 144px;"

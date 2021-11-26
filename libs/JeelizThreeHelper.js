@@ -1,8 +1,7 @@
 /*
   Helper for Three.js
 */
-import * as THREE from 'threejs-miniprogram'
-
+var THREE = undefined;
 const JeelizThreeHelper = (function(){
   // internal settings:
   const _settings = {
@@ -62,7 +61,7 @@ const JeelizThreeHelper = (function(){
       threeCompositeObject.visible = false;
 
       _threeCompositeObjects.push(threeCompositeObject);
-      _threeScene.add(threeCompositeObject);
+    //  _threeScene.add(threeCompositeObject);
     }
   }
 
@@ -200,7 +199,8 @@ const JeelizThreeHelper = (function(){
   //public methods:
   const that = {
     // launched with the same spec object than callbackReady. set spec.threeCanvasId to the ID of the threeCanvas to be in 2 canvas mode:
-    init: function(spec, detectCallback){
+    init: function(scopeThree,spec, detectCallback){
+      THREE = scopeThree
       destroy();
 
       _maxFaces = spec.maxFacesDetected;
@@ -226,6 +226,7 @@ const JeelizThreeHelper = (function(){
       if (typeof(detectCallback) !== 'undefined'){
         _detectCallback = detectCallback;
       }
+      _threeScene = new THREE.Scene();
 
        // init THREE.JS context:
       _threeRenderer = new THREE.WebGLRenderer({
@@ -234,16 +235,15 @@ const JeelizThreeHelper = (function(){
         alpha: (_isSeparateThreeCanvas || spec.alpha) ? true : false
       });
 
-      _threeScene = new THREE.Scene();
       _threeTranslation = new THREE.Vector3();
 
       create_threeCompositeObjects();
       create_videoScreen();
 
       // handle device orientation change:
-      window.addEventListener('orientationchange', function(){
-        setTimeout(JEELIZFACEFILTER.resize, 1000);
-      }, false);
+      // window.addEventListener('orientationchange', function(){
+      //   setTimeout(JEELIZFACEFILTER.resize, 1000);
+      // }, false);
 
       const returnedDict = {
         videoMesh: _threeVideoMesh,
@@ -269,7 +269,7 @@ const JeelizThreeHelper = (function(){
       return _isDetected;
     },
 
-    render: function(detectState, threeCamera){
+    render: function(detectState, threeCamera,THREE){
       const ds = (_isMultiFaces) ? detectState : [detectState];
 
       // update detection states then poses:

@@ -2,8 +2,10 @@ import faceFilter from "../libs/jeelizFaceFilter.moduleNoDOM.js";
 import JeelizResizer from "../libs/JeelizResizer.js";
 import JeelizThreeHelper from "../libs/JeelizThreeHelper.js";
 import neuralNetworkModel from "../neuralNets/NN_DEFAULT";
+import {createScopedThreejs} from 'threejs-miniprogram'
 const vw = 288
 const vh = 384
+var THREECAMERA = undefined
 const arrayBuffer = new Uint8Array(vw * vh * 4); // vw and vh are video width and height in pixels
 var FAKEVIDEOELEMENT = {
   isFakeVideo: true, //always true
@@ -35,19 +37,18 @@ Page({
   },
 
   // build the 3D. called once when Jeeliz Face Filter is OK:
-  init_threeScene(spec) {
-    spec.threeCanvasId = "threeCanvas"; // enable 2 canvas mode
-    const threeStuffs = JeelizThreeHelper.init(spec, this.detect_callback);
+  init_threeScene(spec,THREE) {
+    const threeStuffs = JeelizThreeHelper.init(THREE ,spec, this.detect_callback);
 
     // CREATE A CUBE
-    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const cubeMaterial = new THREE.MeshNormalMaterial();
-    const threeCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    threeCube.frustumCulled = false;
-    threeStuffs.faceObject.add(threeCube);
-
-    //CREATE THE CAMERA
-    THREECAMERA = JeelizThreeHelper.create_camera();
+   const cubeGeometry = new THREE.BoxGeometry(1,1,1);
+   const cubeMaterial = new THREE.MeshNormalMaterial();
+   const threeCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+   threeCube.frustumCulled = false;
+   threeStuffs.faceObject.add(threeCube);
+ 
+   //CREATE THE CAMERA
+   THREECAMERA = JeelizThreeHelper.create_camera();
   },
 
 
@@ -56,15 +57,19 @@ Page({
     const canvas = res.node
     const context = wx.createCameraContext()
     var isInitialized = false
+    var that = this;
+    const THREE = createScopedThreejs(canvas)
     faceFilter.FAKEDOM.window.setCanvas(canvas)
     const listener = context.onCameraFrame((frame) => {
       if (!isInitialized) {
+        console.log('initialized')
         isInitialized = true
         FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
         FAKEVIDEOELEMENT.videoWidth = frame.width
         FAKEVIDEOELEMENT.videoHeight = frame.height
         FAKEVIDEOELEMENT.needsUpdate = true
         faceFilter.init({
+          followZRot: true,
           canvas: canvas,
           videoSettings: {
             videoElement: FAKEVIDEOELEMENT
@@ -78,17 +83,18 @@ Page({
             }
             // [init scene with spec...]
             console.log("INFO: JEELIZFACEFILTER IS READY");
-            //that.init_threeScene(spec);
+            that.init_threeScene(spec,THREE);
           }, //end callbackReady()
           // called at each render iteration (drawing loop)
           callbackTrack: function (detectState) {
-            //JeelizThreeHelper.render(detectState, THREECAMERA);
+           // console.log(detectState);
+            JeelizThreeHelper.render(detectState, THREECAMERA,THREE);
           }, //end callbackTrack()
         });
       } 
       else{
-        // FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
-        // FAKEVIDEOELEMENT.needsUpdate = true
+        FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
+        FAKEVIDEOELEMENT.needsUpdate = true
       }
     })
     listener.start()
