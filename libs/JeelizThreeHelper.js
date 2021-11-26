@@ -386,6 +386,10 @@ const JeelizThreeHelper = (function(){
     update_camera: function(threeCamera){
       // compute aspectRatio:
       const canvasElement = _threeRenderer.domElement;
+      console.log('update_camera start')
+      console.log(canvasElement)
+      console.log('update_camera end')
+
       const cvw = canvasElement.width;
       const cvh = canvasElement.height;
       _canvasAspectRatio = cvw / cvh;
