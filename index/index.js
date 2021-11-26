@@ -1,6 +1,7 @@
 import faceFilter from "../libs/jeelizFaceFilter.moduleNoDOM.js";
 import JeelizResizer from "../libs/JeelizResizer.js";
 import JeelizThreeHelper from "../libs/JeelizThreeHelper.js";
+import JeelizCanvas2DHelper from "../libs/JeelizCanvas2DHelper.js";
 import neuralNetworkModel from "../neuralNets/NN_DEFAULT";
 import {createScopedThreejs} from 'threejs-miniprogram'
 const vw = 288
@@ -14,6 +15,28 @@ var FAKEVIDEOELEMENT = {
   videoWidth: vw, //width in pixels
   needsUpdate: true // boolean
 }
+// SETTINGS of this demo:
+const SETTINGS = {
+  strokeStyle: 'red',
+  rotationOffsetX: 0, // negative -> look upper. in radians
+  cameraFOV: 40,    // in degrees, 3D camera FOV
+  pivotOffsetYZ: [0.2,0.2], // XYZ of the distance between the center of the cube and the pivot
+  detectionThreshold: 0.75, // sensibility, between 0 and 1. Less -> more sensitive
+  detectionHysteresis: 0.05,
+  scale: [1,1.24], // scale of the 2D canvas along horizontal and vertical 2D axis
+  offsetYZ: [-0.1,-0.2], // offset of the 2D canvas along vertical and depth 3D axis
+  canvasSizePx: 512 // resolution of the 2D canvas in pixels
+};
+
+// some globalz:
+let CV = null, CANVAS2D = null, CTX = null, GL = null, CANVASTEXTURE = null, CANVASTEXTURENEEDSUPDATE = false;
+let PROJMATRIX = null, PROJMATRIXNEEDSUPDATE = true;
+let VBO_VERTEX = null, VBO_FACES = null, SHADERCANVAS = null;
+let SHADERVIDEO = null, VIDEOTEXTURE = null, VIDEOTRANSFORMMAT2 = null;
+let MOVMATRIX = create_mat4Identity(), MOVMATRIXINV = create_mat4Identity();
+
+let ZPLANE = 0, YPLANE = 0;
+let ISDETECTED = false;
 // callback: launched if a face is detected or lost.
 function detect_callback(isDetected){
   if (isDetected){
@@ -157,27 +180,27 @@ function init_scene(spec){
   VIDEOTRANSFORMMAT2 = spec.videoTransformMat2;
 
   // create and size the 2D canvas and its drawing context:
-  CANVAS2D = document.createElement('canvas');
-  CANVAS2D.width = SETTINGS.canvasSizePx;
-  CANVAS2D.height = Math.round(SETTINGS.canvasSizePx*SETTINGS.scale[1]/SETTINGS.scale[0]);
-  CTX = CANVAS2D.getContext('2d');
-  CTX.strokeStyle = SETTINGS.strokeStyle;
-  CTX.lineWidth = 4;
-  const frameImage = new Image()
-  frameImage.src = 'frame.png';
-  frameImage.onload = function(){
-    CTX.drawImage(frameImage, 0, 0, frameImage.width, frameImage.height, 0, 0, CANVAS2D.width, CANVAS2D.height);
-    update_canvasTexture();
-  }
+  // CANVAS2D = wx.createOffscreenCanvas({type: '2d', width: 300, height: 150})
+  // CANVAS2D.width = SETTINGS.canvasSizePx;
+  // CANVAS2D.height = Math.round(SETTINGS.canvasSizePx*SETTINGS.scale[1]/SETTINGS.scale[0]);
+  // CTX = CANVAS2D.getContext('2d');
+  // CTX.strokeStyle = SETTINGS.strokeStyle;
+  // CTX.lineWidth = 4;
+  // const frameImage = canvas.createImage()
+  // frameImage.src = 'frame.png';
+  // frameImage.onload = function(){
+  //   CTX.drawImage(frameImage, 0, 0, frameImage.width, frameImage.height, 0, 0, CANVAS2D.width, CANVAS2D.height);
+  //   update_canvasTexture();
+  // }
   
   // create the WebGL texture with the canvas:
-  CANVASTEXTURE = GL.createTexture();
-  GL.bindTexture(GL.TEXTURE_2D, CANVASTEXTURE);
-  GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, GL.RGBA, GL.UNSIGNED_BYTE, CANVAS2D);
-  GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
-  GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
-  GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
-  GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
+  // CANVASTEXTURE = GL.createTexture();
+  // GL.bindTexture(GL.TEXTURE_2D, CANVASTEXTURE);
+  // GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, GL.RGBA, GL.UNSIGNED_BYTE, CANVAS2D);
+  // GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MAG_FILTER, GL.LINEAR);
+  // GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_MIN_FILTER, GL.LINEAR);
+  // GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_S, GL.CLAMP_TO_EDGE);
+  // GL.texParameteri(GL.TEXTURE_2D, GL.TEXTURE_WRAP_T, GL.CLAMP_TO_EDGE);
 
   // create the face plane:
   const sx = SETTINGS.scale[0], sy = SETTINGS.scale[1];  // scale
@@ -344,6 +367,41 @@ function update_canvasTexture(){
   CANVASTEXTURENEEDSUPDATE = true;
 }
 
+function main2(canvas){
+  let CVD = null; // return of Canvas2DDisplay
+
+  faceFilter.init({
+    canvas: canvas,
+    videoSettings: {
+      videoElement: FAKEVIDEOELEMENT
+    },
+    maxFacesDetected: 1,
+    NNC: neuralNetworkModel,
+    callbackReady: function(errCode, spec){
+      if (errCode){
+        console.log('AN ERROR HAPPENS. SORRY BRO :( . ERR =', errCode);
+        return;
+      }
+
+      console.log('INFO: JEELIZFACEFILTER IS READY');
+      CVD = JeelizCanvas2DHelper(spec);
+      CVD.ctx.strokeStyle = 'yellow';
+    },
+
+    // called at each render iteration (drawing loop):
+    callbackTrack: function(detectState){
+      if (detectState.detected > 0.8){
+        // draw a border around the face:
+        const faceCoo = CVD.getCoordinates(detectState);
+        //CVD.ctx.clearRect(0, 0, CVD.canvas.width, CVD.canvas.height);
+        //CVD.ctx.strokeRect(faceCoo.x, faceCoo.y, faceCoo.w, faceCoo.h);
+        CVD.update_canvasTexture();
+      }
+      CVD.draw();
+    }
+  }); //end JEELIZFACEFILTER.init call
+} //end main()
+
 // entry point - launched by body.onload():
 function main(canvas){
   faceFilter.init({
@@ -407,29 +465,29 @@ function main(canvas){
         set_mat4RotationXYZ(MOVMATRIX, detectState.rx+SETTINGS.rotationOffsetX, detectState.ry, detectState.rz);
 
         // render the canvas above:
-        GL.clear(GL.DEPTH_BUFFER_BIT);
-        GL.enable(GL.BLEND);
-        GL.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA);
-        GL.useProgram(SHADERCANVAS.program);
-        GL.enableVertexAttribArray(SHADERCANVAS.position);
-        GL.enableVertexAttribArray(SHADERCANVAS.uv);
-        GL.uniformMatrix4fv(SHADERCANVAS.movMatrix, false, MOVMATRIX);
-        if (PROJMATRIXNEEDSUPDATE){
-          update_projMatrix();
-        }
-        GL.bindTexture(GL.TEXTURE_2D, CANVASTEXTURE);
-        if (CANVASTEXTURENEEDSUPDATE){
-          GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, GL.RGBA, GL.UNSIGNED_BYTE, CANVAS2D);
-          CANVASTEXTURENEEDSUPDATE = false;
-        }
-        GL.bindBuffer(GL.ARRAY_BUFFER, VBO_VERTEX);
-        GL.vertexAttribPointer(SHADERCANVAS.position, 3, GL.FLOAT, false,20,0);
-        GL.vertexAttribPointer(SHADERCANVAS.uv, 2, GL.FLOAT, false,20,12);
-        GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, VBO_FACES);
-        GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_SHORT, 0);
-        GL.disableVertexAttribArray(SHADERCANVAS.uv);
-        GL.disableVertexAttribArray(SHADERCANVAS.position);
-        GL.disable(GL.BLEND);
+        // GL.clear(GL.DEPTH_BUFFER_BIT);
+        // GL.enable(GL.BLEND);
+        // GL.blendFunc(GL.SRC_ALPHA, GL.ONE_MINUS_SRC_ALPHA);
+        // GL.useProgram(SHADERCANVAS.program);
+        // GL.enableVertexAttribArray(SHADERCANVAS.position);
+        // GL.enableVertexAttribArray(SHADERCANVAS.uv);
+        // GL.uniformMatrix4fv(SHADERCANVAS.movMatrix, false, MOVMATRIX);
+        // if (PROJMATRIXNEEDSUPDATE){
+        //   update_projMatrix();
+        // }
+        // GL.bindTexture(GL.TEXTURE_2D, CANVASTEXTURE);
+        // if (CANVASTEXTURENEEDSUPDATE){
+        //   GL.texImage2D(GL.TEXTURE_2D, 0, GL.RGBA, GL.RGBA, GL.UNSIGNED_BYTE, CANVAS2D);
+        //   CANVASTEXTURENEEDSUPDATE = false;
+        // }
+        // GL.bindBuffer(GL.ARRAY_BUFFER, VBO_VERTEX);
+        // GL.vertexAttribPointer(SHADERCANVAS.position, 3, GL.FLOAT, false,20,0);
+        // GL.vertexAttribPointer(SHADERCANVAS.uv, 2, GL.FLOAT, false,20,12);
+        // GL.bindBuffer(GL.ELEMENT_ARRAY_BUFFER, VBO_FACES);
+        // GL.drawElements(GL.TRIANGLES, 6, GL.UNSIGNED_SHORT, 0);
+        // GL.disableVertexAttribArray(SHADERCANVAS.uv);
+        // GL.disableVertexAttribArray(SHADERCANVAS.position);
+        // GL.disable(GL.BLEND);
       } //end if face detected
     } //end callbackTrack()
   }); //end JEELIZFACEFILTER.init call
@@ -461,7 +519,10 @@ Page({
         FAKEVIDEOELEMENT.videoWidth = frame.width
         FAKEVIDEOELEMENT.videoHeight = frame.height
         FAKEVIDEOELEMENT.needsUpdate = true
-        main(canvas)
+        wx.showToast({
+          title: frame.width + ' ' + frame.height,
+        })
+        main2(canvas)
       } 
       else{
         FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)

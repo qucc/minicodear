@@ -5,6 +5,7 @@
   style="width: {{width}}px; height: {{height}}px;"
 >
 </canvas>
+<canvas style="width: 300px; height: 200px;" canvas-id="firstCanvas"></canvas>
 
 <camera
   device-position="front"
