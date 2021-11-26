@@ -61,7 +61,7 @@ const JeelizThreeHelper = (function(){
       threeCompositeObject.visible = false;
 
       _threeCompositeObjects.push(threeCompositeObject);
-    //  _threeScene.add(threeCompositeObject);
+      _threeScene.add(threeCompositeObject);
     }
   }
 
