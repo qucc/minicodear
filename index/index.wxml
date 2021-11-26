@@ -1,3 +1,13 @@
+
+
+<camera
+
+  device-position="front"
+  flash="off"
+  binderror="error"
+  style="width: 192px; height: 144px;top: 0;position: absolute;"
+  frame-size="small"
+></camera>
 <canvas
   id="webgl"
   type="webgl"
@@ -5,11 +15,3 @@
   style="width: {{width}}px; height: {{height}}px;"
 >
 </canvas>
-
-<camera
-  device-position="front"
-  flash="off"
-  binderror="error"
-  style="width: 192px; height: 144px;"
-  frame-size="small"
-></camera>
