@@ -54,7 +54,9 @@ const JeelizThreeHelper = (function(){
   }
 
   function create_threeCompositeObjects(){
-    for (let i=0; i<_maxFaces; ++i){
+
+
+    for (let i=0; i<1; ++i){
       // COMPOSITE OBJECT WHICH WILL TRACK A DETECTED FACE
       const threeCompositeObject = new THREE.Object3D();
       threeCompositeObject.frustumCulled = false;
@@ -62,6 +64,8 @@ const JeelizThreeHelper = (function(){
 
       _threeCompositeObjects.push(threeCompositeObject);
      _threeScene.add(threeCompositeObject);
+
+ 
     }
   }
 
@@ -229,12 +233,13 @@ const JeelizThreeHelper = (function(){
       _threeScene = new THREE.Scene();
 
        // init THREE.JS context:
-      _threeRenderer = new THREE.WebGLRenderer({
-        context: (_isSeparateThreeCanvas) ? null : _gl,
-        canvas: threeCanvas,
-        alpha: (_isSeparateThreeCanvas || spec.alpha) ? true : false
-      });
-
+      // _threeRenderer = new THREE.WebGLRenderer({
+      //   context: (_isSeparateThreeCanvas) ? null : _gl,
+      //   canvas: threeCanvas,
+      //   alpha: (_isSeparateThreeCanvas || spec.alpha) ? true : false
+      // });
+    
+      _threeRenderer = new THREE.WebGLRenderer({ antialias: true });
       _threeTranslation = new THREE.Vector3();
 
       create_threeCompositeObjects();

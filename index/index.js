@@ -14,7 +14,8 @@ var FAKEVIDEOELEMENT = {
   videoWidth: vw, //width in pixels
   needsUpdate: true // boolean
 };
-
+var camera, scene, renderer;
+var mesh;
 Page({
   data: {
     width: 288,
@@ -36,19 +37,21 @@ Page({
     }
   },
 
-  // build the 3D. called once when Jeeliz Face Filter is OK:
-  init_threeScene(spec,THREE) {
-    const threeStuffs = JeelizThreeHelper.init(THREE ,spec, this.detect_callback);
 
-    // CREATE A CUBE
-   const cubeGeometry = new THREE.BoxGeometry(1,1,1);
-   const cubeMaterial = new THREE.MeshNormalMaterial();
-   const threeCube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-   threeCube.frustumCulled = false;
-   threeStuffs.faceObject.add(threeCube);
- 
-   //CREATE THE CAMERA
-   THREECAMERA = JeelizThreeHelper.create_camera();
+
+  // build the 3D. called once when Jeeliz Face Filter is OK:
+  init_threeScene(canvas,THREE) {
+    camera = new THREE.PerspectiveCamera(70, canvas.width / canvas.height, 1, 1000);
+    camera.position.z = 400;
+    scene = new THREE.Scene();
+    var geometry = new THREE.BoxBufferGeometry(200, 200, 200);
+    var material = new THREE.LineBasicMaterial( { color: Math.random() * 0xffffff } )
+    mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(wx.getSystemInfoSync().pixelRatio);
+    renderer.setSize(canvas.width, canvas.height);
+    //renderer.render(scene, camera);
   },
 
 
@@ -59,6 +62,9 @@ Page({
     var isInitialized = false
     var that = this;
     const THREE = createScopedThreejs(canvas)
+    console.log('init')
+    //that.init_threeScene(canvas,THREE);
+
     faceFilter.FAKEDOM.window.setCanvas(canvas)
     const listener = context.onCameraFrame((frame) => {
       if (!isInitialized) {
@@ -83,20 +89,24 @@ Page({
             }
             // [init scene with spec...]
             console.log("INFO: JEELIZFACEFILTER IS READY");
-            that.init_threeScene(spec,THREE);
+
           }, //end callbackReady()
           // called at each render iteration (drawing loop)
           callbackTrack: function (detectState) {
-           // console.log(detectState);
-            JeelizThreeHelper.render(detectState, THREECAMERA,THREE);
+            //renderer.render(scene, camera);
+
+            console.log(detectState);
+           // JeelizThreeHelper.render(detectState, THREECAMERA,THREE);
           }, //end callbackTrack()
         });
       } 
       else{
+        renderer.render(scene, camera);
+       console.log(detectState)
         FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
         FAKEVIDEOELEMENT.needsUpdate = true
       }
     })
-    listener.start()
+   listener.start()
   }
 })
