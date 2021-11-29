@@ -3,16 +3,16 @@ import JeelizResizer from "../libs/JeelizResizer.js";
 import JeelizThreeHelper from "../libs/JeelizThreeHelper.js";
 import neuralNetworkModel from "../neuralNets/NN_DEFAULT";
 import {createScopedThreejs} from 'threejs-miniprogram'
-const vw = 288
-const vh = 384
+const vw = 640
+const vh = 480
 var THREECAMERA = undefined
-const arrayBuffer = new Uint8Array(vw * vh * 4); // vw and vh are video width and height in pixels
+//const arrayBuffer = new Uint8Array(vw * vh * 4); // vw and vh are video width and height in pixels
 var FAKEVIDEOELEMENT = {
   isFakeVideo: true, //always true
-  arrayBuffer: arrayBuffer, // the WeChat video arrayBuffer
+  arrayBuffer: null, // the WeChat video arrayBuffer
   videoHeight: vh, // height in pixels
   videoWidth: vw, //width in pixels
-  needsUpdate: true // boolean
+  needsUpdate: false // boolean
 };
 
 Page({
@@ -52,48 +52,52 @@ Page({
   },
 
 
+  init_faceFilter(canvas, cb) {
+    faceFilter.init({
+      followZRot: true,
+      canvas: canvas,
+      videoSettings: {
+        videoElement: FAKEVIDEOELEMENT
+      },
+      maxFacesDetected: 1,
+      NNC: neuralNetworkModel,
+      callbackReady: function (errCode, spec) {
+        if (errCode) {
+          console.log("AN ERROR HAPPENS. ERROR CODE =", errCode);
+          return;
+        }
+        // [init scene with spec...]
+        console.log("INFO: JEELIZFACEFILTER IS READY");
+        const THREE = createScopedThreejs(canvas)
+        this.init_threeScene(spec,THREE);
+        if (cb){
+          cb();
+        }
+      }, //end callbackReady()
+      // called at each render iteration (drawing loop)
+      callbackTrack: function (detectState) {
+       // console.log(detectState);
+        JeelizThreeHelper.render(detectState, THREECAMERA,THREE);
+      }, //end callbackTrack()
+    });
+  },
+
 
   init(res) {
     const canvas = res.node
     const context = wx.createCameraContext()
     var isInitialized = false
-    var that = this;
-    const THREE = createScopedThreejs(canvas)
     faceFilter.FAKEDOM.window.setCanvas(canvas)
+    let isFFInitialized = false
+    this.init_faceFilter(canvas, function(){
+      isFFInitialized = true
+    })
+
     const listener = context.onCameraFrame((frame) => {
-      if (!isInitialized) {
-        console.log('initialized')
-        isInitialized = true
+      if (isFFInitialized){
         FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
         FAKEVIDEOELEMENT.videoWidth = frame.width
         FAKEVIDEOELEMENT.videoHeight = frame.height
-        FAKEVIDEOELEMENT.needsUpdate = true
-        faceFilter.init({
-          followZRot: true,
-          canvas: canvas,
-          videoSettings: {
-            videoElement: FAKEVIDEOELEMENT
-          },
-          maxFacesDetected: 1,
-          NNC: neuralNetworkModel,
-          callbackReady: function (errCode, spec) {
-            if (errCode) {
-              console.log("AN ERROR HAPPENS. ERROR CODE =", errCode);
-              return;
-            }
-            // [init scene with spec...]
-            console.log("INFO: JEELIZFACEFILTER IS READY");
-            that.init_threeScene(spec,THREE);
-          }, //end callbackReady()
-          // called at each render iteration (drawing loop)
-          callbackTrack: function (detectState) {
-           // console.log(detectState);
-            JeelizThreeHelper.render(detectState, THREECAMERA,THREE);
-          }, //end callbackTrack()
-        });
-      } 
-      else{
-        FAKEVIDEOELEMENT.arrayBuffer = new Uint8Array(frame.data)
         FAKEVIDEOELEMENT.needsUpdate = true
       }
     })
